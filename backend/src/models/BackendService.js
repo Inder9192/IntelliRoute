@@ -7,4 +7,4 @@ const backendSchema = new mongoose.Schema({
   isActive: { type: Boolean, default: true }
 });
 
-module.exports = mongoose.model("BackendService", backendSchema);
+module.exports = mongoose.model("backendService", backendSchema);

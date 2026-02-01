@@ -1,35 +1,81 @@
 const { createProxyMiddleware } = require("http-proxy-middleware");
 const BackendService = require("../models/backendService");
 const metricsCollector = require("../metrics/metricsCollector");
-const { selectBestBackend } = require("../engine/ruleEngine");
+const { buildRoutingPlan } = require("../engine/ruleEngine");
+
+/**
+ * Pick backend based on weights
+ */
+function pickBackendByWeight(weightedPlan) {
+  const random = Math.floor(Math.random() * 100) + 1;
+
+  let cumulative = 0;
+
+  for (const entry of weightedPlan) {
+    cumulative += entry.weight;
+    if (random <= cumulative) {
+      return entry.backend;
+    }
+  }
+
+  // Fallback (should not normally happen)
+  return weightedPlan[0].backend;
+}
 
 async function proxyHandler(req, res, next) {
-  const tenantId = req.user.tenantId.toString();
+  try {
+    const tenantId = req.user.tenantId.toString();
 
-  const backends = await BackendService.find({
-    tenantId,
-    isActive: true
-  });
+    const backends = await BackendService.find({
+      tenantId,
+      isActive: true
+    });
 
-  metricsCollector.initTenant(tenantId, backends);
-
-  const metrics = metricsCollector.getMetrics(tenantId);
-  const bestBackend = selectBestBackend(backends, metrics);
-
-  const start = Date.now();
-  metricsCollector.recordRequest(tenantId, bestBackend._id);
-
-  return createProxyMiddleware({
-    target: bestBackend.url,
-    changeOrigin: true,
-    onProxyRes: () => {
-      const latency = Date.now() - start;
-      metricsCollector.recordResponse(tenantId, bestBackend._id, latency);
-    },
-    onError: () => {
-      metricsCollector.recordError(tenantId, bestBackend._id);
+    if (!backends.length) {
+      return res.status(503).json({
+        msg: "No backends configured"
+      });
     }
-  })(req, res, next);
+
+    // Initialize metrics if needed
+    metricsCollector.initTenant(tenantId, backends);
+
+    const metrics = metricsCollector.getMetrics(tenantId);
+
+    // 1. Build weighted routing plan
+    const routingPlan = await buildRoutingPlan(backends, metrics);
+
+    // 2. Pick backend probabilistically
+    const selectedBackend = pickBackendByWeight(routingPlan);
+
+    const start = Date.now();
+    metricsCollector.recordRequest(tenantId, selectedBackend._id);
+
+    return createProxyMiddleware({
+      target: selectedBackend.url,
+      changeOrigin: true,
+
+      onProxyRes: () => {
+        const latency = Date.now() - start;
+        metricsCollector.recordResponse(
+          tenantId,
+          selectedBackend._id,
+          latency
+        );
+      },
+
+      onError: () => {
+        metricsCollector.recordError(
+          tenantId,
+          selectedBackend._id
+        );
+      }
+    })(req, res, next);
+
+  } catch (err) {
+    console.error("Proxy error:", err.message);
+    res.status(500).json({ msg: "Proxy failure" });
+  }
 }
 
 module.exports = proxyHandler;
