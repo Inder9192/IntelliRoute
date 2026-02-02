@@ -1,0 +1,148 @@
+.backend-list {
+  margin-top: 20px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.empty-state p {
+  margin: 10px 0;
+  font-size: 1.1em;
+}
+
+.empty-state .hint {
+  color: #bbb;
+  font-size: 0.9em;
+}
+
+.backends-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.backend-card {
+  background: linear-gradient(135deg, #f5f7fa 0%, #fff 100%);
+  border: 1px solid #e0e6ed;
+  border-radius: 10px;
+  overflow: hidden;
+  transition: all 0.3s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.backend-card:hover {
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.15);
+  transform: translateY(-4px);
+  border-color: #667eea;
+}
+
+.card-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header h3 {
+  margin: 0;
+  font-size: 1.2em;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.status-badge.active {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+.status-badge.inactive {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.card-body {
+  padding: 20px;
+}
+
+.url-section,
+.id-section {
+  margin-bottom: 15px;
+}
+
+.url-section:last-child {
+  margin-bottom: 0;
+}
+
+.url-section label,
+.id-section label {
+  display: block;
+  font-weight: 600;
+  color: #667eea;
+  margin-bottom: 8px;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+code {
+  display: block;
+  background: #f5f7fa;
+  padding: 10px;
+  border-radius: 6px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.9em;
+  color: #333;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
+.id-code {
+  font-size: 0.85em;
+  color: #999;
+}
+
+.card-footer {
+  padding: 15px 20px;
+  background: #f9fafb;
+  border-top: 1px solid #e0e6ed;
+  text-align: right;
+}
+
+.toggle-btn {
+  padding: 10px 20px;
+  background: #667eea;
+  color: white;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.toggle-btn:hover {
+  background: #764ba2;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.toggle-btn.active {
+  background: #52c41a;
+}
+
+.toggle-btn.active:hover {
+  background: #45a611;
+}
+
+@media (max-width: 768px) {
+  .backends-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,146 @@
+.dashboard {
+  min-height: 100vh;
+  background: #f5f7fa;
+}
+
+.dashboard-header {
+  background: white;
+  padding: 20px 40px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #667eea;
+}
+
+.header-left h1 {
+  color: #667eea;
+  margin: 0;
+  font-size: 1.8em;
+}
+
+.header-left .user-info {
+  color: #666;
+  font-size: 0.9em;
+  margin: 4px 0 0 0;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.company-badge {
+  background: #667eea;
+  color: white;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 600;
+}
+
+.logout-btn {
+  background: #ff6b6b;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.logout-btn:hover {
+  background: #ff5252;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+}
+
+.dashboard-nav {
+  background: white;
+  display: flex;
+  gap: 10px;
+  padding: 0 40px;
+  border-bottom: 1px solid #eee;
+  overflow-x: auto;
+}
+
+.nav-btn {
+  padding: 15px 20px;
+  background: none;
+  color: #666;
+  font-weight: 500;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  transition: all 0.3s;
+  white-space: nowrap;
+}
+
+.nav-btn:hover {
+  color: #667eea;
+}
+
+.nav-btn.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.dashboard-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 20px;
+}
+
+.section {
+  background: white;
+  border-radius: 10px;
+  padding: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.section h2 {
+  color: #333;
+  margin-bottom: 25px;
+  font-size: 1.5em;
+  border-bottom: 2px solid #667eea;
+  padding-bottom: 15px;
+}
+
+.loading {
+  text-align: center;
+  color: #999;
+  padding: 40px;
+  font-size: 1.1em;
+}
+
+.error {
+  background: #fee;
+  color: #c33;
+  padding: 15px;
+  border-radius: 6px;
+  border-left: 4px solid #c33;
+}
+
+@media (max-width: 768px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 15px;
+    align-items: flex-start;
+  }
+
+  .header-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .dashboard-nav {
+    padding: 0 20px;
+  }
+
+  .dashboard-content {
+    padding: 20px 10px;
+  }
+
+  .section {
+    padding: 20px;
+  }
+}
