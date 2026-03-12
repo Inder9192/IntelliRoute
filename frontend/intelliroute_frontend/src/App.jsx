@@ -1,85 +1,58 @@
-import { useState, useEffect } from 'react';
-import io from 'socket.io-client';
-import './App.css';
-import AuthPage from './pages/AuthPage';
-import Dashboard from './pages/Dashboard';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
+import ProtectedRoute from './components/ProtectedRoute';
+import { Toaster } from './components/ui/toaster';
+import { Toaster as Sonner } from './components/ui/sonner';
+import { TooltipProvider } from './components/ui/tooltip';
+import './index.css';
+
+// Pages
+import Index from './pages/Index';
+import Login from './pages/Login';
+import Signup from './pages/Signup';
+import NotFound from './pages/NotFound';
+import DashboardLayout from './components/dashboard/DashboardLayout';
+import DashboardOverview from './pages/dashboard/DashboardOverview';
+import BackendsPage from './pages/dashboard/BackendsPage';
+import MetricsPage from './pages/dashboard/MetricsPage';
+import RoutingPage from './pages/dashboard/RoutingPage';
+import SettingsPage from './pages/dashboard/SettingsPage';
 
 function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState(null);
-  const [socket, setSocket] = useState(null);
-  const [metrics, setMetrics] = useState({});
-
-  // Initialize Socket.io connection
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    const newSocket = io('http://localhost:4000', {
-      auth: {
-        token: localStorage.getItem('token')
-      }
-    });
-
-    newSocket.on('connect', () => {
-      console.log('Connected to metrics server');
-    });
-
-    newSocket.on('metricsUpdate', (data) => {
-      setMetrics(prev => ({
-        ...prev,
-        [data.tenantId]: data
-      }));
-    });
-
-    newSocket.on('disconnect', () => {
-      console.log('Disconnected from metrics server');
-    });
-
-    setSocket(newSocket);
-
-    return () => {
-      newSocket.disconnect();
-    };
-  }, [isAuthenticated]);
-
-  // Check if user is already logged in
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    if (token && savedUser) {
-      setIsAuthenticated(true);
-      setUser(JSON.parse(savedUser));
-    }
-  }, []);
-
-  const handleLogin = (token, userData) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setIsAuthenticated(true);
-    setUser(userData);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsAuthenticated(false);
-    setUser(null);
-    setMetrics({});
-  };
-
   return (
-    <div className="app">
-      {!isAuthenticated ? (
-        <AuthPage onLogin={handleLogin} />
-      ) : (
-        <Dashboard 
-          user={user} 
-          onLogout={handleLogout} 
-          socket={socket}
-          metrics={metrics}
-        />
-      )}
-    </div>
+    <AuthProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<Signup />} />
+
+            {/* Protected routes */}
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<DashboardOverview />} />
+              <Route path="backends" element={<BackendsPage />} />
+              <Route path="metrics" element={<MetricsPage />} />
+              <Route path="routing" element={<RoutingPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+
+            {/* 404 route */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </AuthProvider>
   );
 }
 

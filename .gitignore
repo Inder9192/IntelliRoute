@@ -1,2 +1,13 @@
+# Environment variables
 .env
-/node_modules
+
+# Ignore dependencies everywhere
+node_modules/
+**/node_modules/
+
+# Logs
+*.log
+
+# Build folders
+dist
+build
