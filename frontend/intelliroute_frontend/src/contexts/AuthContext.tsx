@@ -3,6 +3,7 @@ import { authApi } from "@/lib/api";
 
 interface User {
   id: string;
+  tenantId: string;
   name: string;
   email: string;
   company?: string;
@@ -53,6 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const decoded = decodeToken(res.token);
     const userData: User = {
       id: decoded?.userId || "",
+      tenantId: decoded?.tenantId || "",
       email,
       name: email.split("@")[0],
       role: "user",

@@ -66,7 +66,7 @@ const MetricsPreview = () => {
             <div className="w-3 h-3 rounded-full bg-primary/40" />
             <div className="w-3 h-3 rounded-full bg-secondary/40" />
             <span className="ml-3 text-xs font-mono text-muted-foreground">
-              inteliroute://metrics — tick #{tick}
+              intelliroute://metrics — tick #{tick}
             </span>
           </div>
 

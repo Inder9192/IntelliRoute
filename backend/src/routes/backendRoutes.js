@@ -24,4 +24,27 @@ router.get("/list", authMiddleware, async (req, res) => {
   res.json(backends);
 });
 
+router.put("/:id", authMiddleware, async (req, res) => {
+  const backend = await BackendService.findOneAndUpdate(
+    { _id: req.params.id, tenantId: req.user.tenantId },
+    req.body,
+    { new: true }
+  );
+
+  if (!backend) return res.status(404).json({ message: "Backend not found" });
+
+  res.json(backend);
+});
+
+router.delete("/:id", authMiddleware, async (req, res) => {
+  const backend = await BackendService.findOneAndDelete({
+    _id: req.params.id,
+    tenantId: req.user.tenantId
+  });
+
+  if (!backend) return res.status(404).json({ message: "Backend not found" });
+
+  res.json({ message: "Deleted" });
+});
+
 module.exports = router;

@@ -3,27 +3,27 @@ import { motion } from "framer-motion";
 const steps = [
   {
     num: "01",
-    title: "Request Ingress",
-    desc: "JWT-authenticated requests hit the proxy with tenant context extracted from the token.",
-    code: "const tenantId = req.user.tenantId;",
+    title: "Your Request Arrives",
+    desc: "When a user sends a request, it comes to our system where we identify who they are and what company they belong to.",
+    code: "",
   },
   {
     num: "02",
-    title: "Score Calculation",
-    desc: "Each backend gets a health score based on latency, errors, and active connections.",
-    code: "score = 100 - (avgLatency × 0.2) - (errors × 10) - (active × 2)",
+    title: "We Check Your Servers",
+    desc: "We measure how well each of your backup servers is performing - checking their speed, reliability, and current workload.",
+    code: "",
   },
   {
     num: "03",
-    title: "AI Arbitration",
-    desc: "When scores are within 5% of each other, Bedrock analyzes metrics and adjusts weights.",
-    code: 'if (weightsAreClose(plan)) → askBedrock(context)',
+    title: "Smart Comparison",
+    desc: "When multiple servers are equally good, our AI gets involved to spot any differences in their performance patterns.",
+    code: "",
   },
   {
     num: "04",
-    title: "Weighted Selection",
-    desc: "Backend is selected probabilistically based on final normalized weights summing to 100.",
-    code: "cumulative += entry.weight; if (rand <= cumulative) → route",
+    title: "Request Gets Routed",
+    desc: "We send your request to the best-performing server based on all the checks we just did, ensuring the fastest response.",
+    code: "",
   },
 ];
 
@@ -64,9 +64,11 @@ const ArchitectureSection = () => {
                 <div className="flex-1 pt-1">
                   <h3 className="font-mono font-semibold text-foreground text-lg">{step.title}</h3>
                   <p className="text-sm text-muted-foreground mt-1 mb-3">{step.desc}</p>
-                  <div className="bg-muted/30 border border-border/40 rounded-lg px-4 py-2.5 font-mono text-xs text-primary/80 overflow-x-auto">
-                    {step.code}
-                  </div>
+                  {step.code && (
+                    <div className="bg-muted/30 border border-border/40 rounded-lg px-4 py-2.5 font-mono text-xs text-primary/80 overflow-x-auto">
+                      {step.code}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             ))}

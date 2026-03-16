@@ -1,9 +1,7 @@
-import { NavLink, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Zap, LayoutDashboard, Server, BarChart3, Settings, LogOut, Activity, Shield,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Zap, LayoutDashboard, Server, BarChart3, Settings, LogOut, Activity, Shield } from "lucide-react";
 
 const navItems = [
   { to: "/dashboard", icon: LayoutDashboard, label: "Overview" },
@@ -16,6 +14,8 @@ const navItems = [
 const DashboardSidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [logoutHover, setLogoutHover] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -23,53 +23,108 @@ const DashboardSidebar = () => {
   };
 
   return (
-    <aside className="w-64 min-h-screen bg-card/50 border-r border-border/30 flex flex-col">
+    <aside style={{
+      width: "256px",
+      minWidth: "256px",
+      height: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      background: "#111111",
+      borderRight: "1px solid rgba(255,255,255,0.06)",
+      overflow: "hidden",
+      flexShrink: 0,
+    }}>
       {/* Logo */}
-      <div className="h-16 flex items-center gap-2 px-6 border-b border-border/20">
-        <Zap className="w-5 h-5 text-primary" />
-        <span className="font-mono font-bold text-foreground tracking-tight">
-          inteli<span className="text-primary">route</span>
+      <Link to="/" style={{
+        height: "64px",
+        display: "flex",
+        alignItems: "center",
+        gap: "8px",
+        padding: "0 24px",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        textDecoration: "none",
+        flexShrink: 0,
+      }}>
+        <Zap size={18} color="#00e5b4" />
+        <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: "0.95rem", color: "#fff", letterSpacing: "-0.01em" }}>
+          Intelli<span style={{ color: "#00e5b4" }}>Route</span>
         </span>
-      </div>
+      </Link>
 
       {/* Nav */}
-      <nav className="flex-1 p-4 space-y-1">
+      <nav style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: "2px" }}>
         {navItems.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             end={to === "/dashboard"}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-mono transition-all duration-200",
-                isActive
-                  ? "bg-primary/10 text-primary border border-primary/20"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
-              )
-            }
+            onMouseEnter={() => setHoveredItem(to)}
+            onMouseLeave={() => setHoveredItem(null)}
+            style={({ isActive }) => ({
+              display: "flex",
+              alignItems: "center",
+              gap: "12px",
+              padding: "10px 12px",
+              borderRadius: "8px",
+              textDecoration: "none",
+              fontFamily: "monospace",
+              fontSize: "0.875rem",
+              fontWeight: isActive ? 600 : 400,
+              color: isActive ? "#00e5b4" : hoveredItem === to ? "#fff" : "#6b7280",
+              background: isActive
+                ? "rgba(0,229,180,0.08)"
+                : hoveredItem === to
+                ? "rgba(255,255,255,0.04)"
+                : "transparent",
+              border: isActive ? "1px solid rgba(0,229,180,0.15)" : "1px solid transparent",
+              transition: "all 0.15s ease",
+            })}
           >
-            <Icon className="w-4 h-4" />
+            <Icon size={16} />
             {label}
           </NavLink>
         ))}
       </nav>
 
-      {/* User */}
-      <div className="p-4 border-t border-border/20">
-        <div className="flex items-center gap-3 px-3 py-2 mb-2">
-          <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
-            <Shield className="w-4 h-4 text-primary" />
+      {/* User + Logout */}
+      <div style={{
+        padding: "12px",
+        borderTop: "1px solid rgba(255,255,255,0.06)",
+        flexShrink: 0,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px", padding: "8px 12px", marginBottom: "4px" }}>
+          <div style={{
+            width: "32px", height: "32px", borderRadius: "50%",
+            background: "rgba(0,229,180,0.12)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <Shield size={14} color="#00e5b4" />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-sm font-mono text-foreground truncate">{user?.name || "Operator"}</div>
-            <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: "0.85rem", fontFamily: "monospace", color: "#fff", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {user?.name || "Operator"}
+            </div>
+            <div style={{ fontSize: "0.72rem", fontFamily: "monospace", color: "#6b7280", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {user?.email}
+            </div>
           </div>
         </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-mono text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-all w-full"
+          onMouseEnter={() => setLogoutHover(true)}
+          onMouseLeave={() => setLogoutHover(false)}
+          style={{
+            display: "flex", alignItems: "center", gap: "12px",
+            width: "100%", padding: "10px 12px", borderRadius: "8px",
+            border: "none", cursor: "pointer", fontFamily: "monospace",
+            fontSize: "0.875rem",
+            background: logoutHover ? "rgba(239,68,68,0.08)" : "transparent",
+            color: logoutHover ? "#ef4444" : "#6b7280",
+            transition: "all 0.15s ease",
+          }}
         >
-          <LogOut className="w-4 h-4" />
+          <LogOut size={16} />
           Logout
         </button>
       </div>

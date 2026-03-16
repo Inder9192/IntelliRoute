@@ -1,174 +1,197 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { BarChart3, TrendingUp, Clock, AlertTriangle } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSocket } from "@/hooks/useSocket";
+import { backendsApi } from "@/lib/api";
+import { MetricsSkeleton } from "@/components/dashboard/PageSkeleton";
 
-interface MetricPoint {
-  time: string;
-  latency: number;
-  requests: number;
-  errors: number;
-}
+const card: React.CSSProperties = {
+  background: "#161616",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: "12px",
+  padding: "20px 24px",
+};
+
+interface LatencyPoint { time: string; latency: number; errors: number; }
 
 const MetricsPage = () => {
-  const [points, setPoints] = useState<MetricPoint[]>([]);
-  const [selectedBackend, setSelectedBackend] = useState("all");
+  const { user } = useAuth();
+  const { metrics, connected } = useSocket(user?.tenantId);
 
-  const backends = ["all", "us-east-1a", "us-east-1b", "eu-west-1a", "ap-south-1a"];
+  const [ready, setReady] = useState(false);
+  const [backends, setBackends] = useState<any[]>([]);
+  const [selectedId, setSelectedId] = useState<string>("all");
+  const [history, setHistory] = useState<LatencyPoint[]>([]);
 
   useEffect(() => {
-    // Seed
-    const seed: MetricPoint[] = Array.from({ length: 30 }, (_, i) => ({
-      time: `${i}s`,
-      latency: Math.floor(Math.random() * 80 + 30),
-      requests: Math.floor(Math.random() * 400 + 600),
-      errors: Math.floor(Math.random() * 5),
-    }));
-    setPoints(seed);
+    const t = setTimeout(() => setReady(true), 1000);
+    return () => clearTimeout(t);
+  }, []);
 
-    const interval = setInterval(() => {
-      setPoints((prev) => {
-        const newPoint: MetricPoint = {
-          time: `${prev.length}s`,
-          latency: Math.floor(Math.random() * 80 + 30),
-          requests: Math.floor(Math.random() * 400 + 600),
-          errors: Math.floor(Math.random() * 5),
-        };
-        return [...prev.slice(-29), newPoint];
-      });
-    }, 2000);
-    return () => clearInterval(interval);
-  }, [selectedBackend]);
+  useEffect(() => {
+    backendsApi.list().then(setBackends).catch(() => {});
+  }, []);
 
-  const maxLatency = Math.max(...points.map((p) => p.latency), 1);
-  const maxRequests = Math.max(...points.map((p) => p.requests), 1);
-  const avgLatency = points.length ? Math.round(points.reduce((s, p) => s + p.latency, 0) / points.length) : 0;
-  const totalErrors = points.reduce((s, p) => s + p.errors, 0);
-  const totalRequests = points.reduce((s, p) => s + p.requests, 0);
+  useEffect(() => {
+    const relevantMetrics = selectedId === "all"
+      ? Object.values(metrics)
+      : metrics[selectedId] ? [metrics[selectedId]] : [];
+    if (relevantMetrics.length === 0) return;
+    const allLatencies = relevantMetrics.flatMap((m) => m.latency);
+    const allErrors = relevantMetrics.flatMap((m) => m.errors);
+    const avgLat = allLatencies.length
+      ? Math.round(allLatencies.reduce((s, v) => s + v, 0) / allLatencies.length) : 0;
+    if (avgLat === 0) return;
+    setHistory((prev) => {
+      const now = new Date().toLocaleTimeString();
+      return [...prev.slice(-29), { time: now, latency: avgLat, errors: allErrors.length }];
+    });
+  }, [metrics, selectedId]);
+
+  const maxLatency = Math.max(...history.map((p) => p.latency), 1);
+  const avgLatency = history.length ? Math.round(history.reduce((s, p) => s + p.latency, 0) / history.length) : 0;
+  const totalErrors = history.reduce((s, p) => s + p.errors, 0);
+
+  const summaryCards = [
+    { label: "Avg Latency", value: avgLatency ? `${avgLatency}ms` : "—", icon: <Clock size={16} />, color: "#00e5b4" },
+    { label: "Data Points", value: history.length.toString(), icon: <BarChart3 size={16} />, color: "#00e5b4" },
+    { label: "Error Count", value: totalErrors.toString(), icon: <AlertTriangle size={16} />, color: "#ef4444" },
+    { label: "Socket", value: connected ? "LIVE" : "OFF", icon: <TrendingUp size={16} />, color: connected ? "#00e5b4" : "#6b7280" },
+  ];
+
+  if (!ready) return <MetricsSkeleton />;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+
+      {/* Header + filter */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "12px" }}>
         <div>
-          <h1 className="text-2xl font-mono font-bold text-foreground">Metrics</h1>
-          <p className="text-sm text-muted-foreground font-mono mt-1">Performance analytics & monitoring</p>
+          <h1 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: 0 }}>Metrics</h1>
+          <p style={{ fontSize: "0.8rem", color: "#6b7280", fontFamily: "monospace", marginTop: "6px" }}>Performance analytics & monitoring</p>
         </div>
-        <div className="flex gap-1 p-1 rounded-lg bg-muted/30 border border-border/20">
+        <div style={{
+          display: "flex", gap: "4px", padding: "4px",
+          background: "#161616", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", flexWrap: "wrap",
+        }}>
+          <button
+            onClick={() => { setSelectedId("all"); setHistory([]); }}
+            style={{
+              padding: "6px 12px", borderRadius: "6px", fontSize: "0.72rem",
+              fontFamily: "monospace", border: "none", cursor: "pointer",
+              background: selectedId === "all" ? "rgba(0,229,180,0.15)" : "transparent",
+              color: selectedId === "all" ? "#00e5b4" : "#6b7280",
+              transition: "all 0.15s",
+            }}
+          >all</button>
           {backends.map((b) => (
             <button
-              key={b}
-              onClick={() => setSelectedBackend(b)}
-              className={`px-3 py-1.5 rounded-md text-xs font-mono transition-all ${
-                selectedBackend === b
-                  ? "bg-primary/20 text-primary"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {b}
-            </button>
+              key={b._id}
+              onClick={() => { setSelectedId(b._id); setHistory([]); }}
+              style={{
+                padding: "6px 12px", borderRadius: "6px", fontSize: "0.72rem",
+                fontFamily: "monospace", border: "none", cursor: "pointer",
+                background: selectedId === b._id ? "rgba(0,229,180,0.15)" : "transparent",
+                color: selectedId === b._id ? "#00e5b4" : "#6b7280",
+                transition: "all 0.15s",
+              }}
+            >{b.name}</button>
           ))}
         </div>
       </div>
 
       {/* Summary cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {[
-          { label: "Avg Latency", value: `${avgLatency}ms`, icon: <Clock className="w-4 h-4" />, color: "text-primary" },
-          { label: "Total Requests", value: totalRequests.toLocaleString(), icon: <BarChart3 className="w-4 h-4" />, color: "text-secondary" },
-          { label: "Error Count", value: totalErrors.toString(), icon: <AlertTriangle className="w-4 h-4" />, color: "text-destructive" },
-          { label: "Throughput", value: `${Math.round(totalRequests / 30)}/s`, icon: <TrendingUp className="w-4 h-4" />, color: "text-accent" },
-        ].map((s, i) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+        {summaryCards.map((s, i) => (
           <motion.div
             key={s.label}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="p-4 rounded-xl border border-border/30 bg-card/50"
+            transition={{ delay: i * 0.08 }}
+            style={card}
           >
-            <div className={`mb-2 ${s.color}`}>{s.icon}</div>
-            <div className="text-xl font-mono font-bold text-foreground">{s.value}</div>
-            <div className="text-xs font-mono text-muted-foreground">{s.label}</div>
+            <div style={{ color: s.color, marginBottom: "10px" }}>{s.icon}</div>
+            <div style={{ fontSize: "1.6rem", fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1 }}>{s.value}</div>
+            <div style={{ fontSize: "0.72rem", color: "#6b7280", fontFamily: "monospace", marginTop: "6px" }}>{s.label}</div>
           </motion.div>
         ))}
       </div>
 
       {/* Latency chart */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3 }}
-        className="rounded-xl border border-border/30 bg-card/50 p-6"
+        style={{ ...card, padding: "24px" }}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-mono font-semibold text-foreground">Latency (ms)</h2>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs font-mono text-primary">LIVE</span>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
+          <div style={{ fontSize: "1rem", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>Latency (ms)</div>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <motion.div
+              animate={connected ? { opacity: [1, 0.3, 1] } : {}}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: connected ? "#00e5b4" : "#4b5563" }}
+            />
+            <span style={{ fontSize: "0.65rem", fontFamily: "monospace", color: "#00e5b4" }}>{connected ? "LIVE" : "—"}</span>
           </div>
         </div>
-        <div className="relative h-48">
-          <svg className="w-full h-full" preserveAspectRatio="none">
-            {/* Grid lines */}
-            {[0, 0.25, 0.5, 0.75, 1].map((y) => (
-              <line key={y} x1="0" x2="100%" y1={`${y * 100}%`} y2={`${y * 100}%`} stroke="hsl(var(--border))" strokeWidth="0.5" strokeOpacity="0.3" />
-            ))}
-            {/* Area */}
-            <path
-              d={
-                `M 0 ${192} ` +
-                points.map((p, i) => `L ${(i / (points.length - 1)) * 100}% ${192 - (p.latency / maxLatency) * 180}`).join(" ") +
-                ` L 100% ${192} Z`
-              }
-              fill="hsl(var(--primary) / 0.1)"
-            />
-            {/* Line */}
-            <polyline
-              points={points.map((p, i) => `${(i / (points.length - 1)) * 100}%,${192 - (p.latency / maxLatency) * 180}`).join(" ")}
-              fill="none"
-              stroke="hsl(var(--primary))"
-              strokeWidth="2"
-            />
-            {/* Dots */}
-            {points.map((p, i) => (
-              <circle
-                key={i}
-                cx={`${(i / (points.length - 1)) * 100}%`}
-                cy={192 - (p.latency / maxLatency) * 180}
-                r="2"
-                fill="hsl(var(--primary))"
+        <div style={{ position: "relative", height: "180px" }}>
+          {history.length < 2 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "#4b5563", fontSize: "0.8rem", fontFamily: "monospace" }}>
+              {connected ? "Waiting for traffic..." : "Connecting..."}
+            </div>
+          ) : (
+            <svg width="100%" height="100%" preserveAspectRatio="none">
+              {[0, 0.25, 0.5, 0.75, 1].map((y) => (
+                <line key={y} x1="0" x2="100%" y1={`${y * 100}%`} y2={`${y * 100}%`} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+              ))}
+              <path
+                d={`M 0 180 ` + history.map((p, i) => `L ${(i / (history.length - 1)) * 100}% ${180 - (p.latency / maxLatency) * 165}`).join(" ") + ` L 100% 180 Z`}
+                fill="rgba(0,229,180,0.08)"
               />
-            ))}
-          </svg>
+              <polyline
+                points={history.map((p, i) => `${(i / (history.length - 1)) * 100}%,${180 - (p.latency / maxLatency) * 165}`).join(" ")}
+                fill="none" stroke="#00e5b4" strokeWidth="2"
+              />
+              {history.map((p, i) => (
+                <circle key={i} cx={`${(i / (history.length - 1)) * 100}%`} cy={180 - (p.latency / maxLatency) * 165} r="2.5" fill="#00e5b4" />
+              ))}
+            </svg>
+          )}
         </div>
       </motion.div>
 
-      {/* Requests chart */}
+      {/* Error bars */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="rounded-xl border border-border/30 bg-card/50 p-6"
+        style={{ ...card, padding: "24px" }}
       >
-        <h2 className="text-lg font-mono font-semibold text-foreground mb-4">Requests / Interval</h2>
-        <div className="flex items-end gap-1 h-32">
-          {points.map((p, i) => (
-            <motion.div
-              key={i}
-              className="flex-1 rounded-t-sm relative group cursor-pointer"
-              style={{
-                height: `${(p.requests / maxRequests) * 100}%`,
-                background: p.errors > 3
-                  ? "hsl(var(--destructive) / 0.6)"
-                  : "hsl(var(--secondary) / 0.4)",
-              }}
-              initial={{ height: 0 }}
-              animate={{ height: `${(p.requests / maxRequests) * 100}%` }}
-              transition={{ duration: 0.3 }}
-            >
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-card border border-border/30 px-2 py-1 rounded text-xs font-mono text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                {p.requests} req / {p.errors} err
-              </div>
-            </motion.div>
-          ))}
+        <div style={{ fontSize: "1rem", fontWeight: 600, color: "#fff", fontFamily: "monospace", marginBottom: "20px" }}>Errors / Interval</div>
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "100px" }}>
+          {history.length === 0 ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4b5563", fontSize: "0.8rem", fontFamily: "monospace" }}>
+              No data yet
+            </div>
+          ) : history.map((p, i) => {
+            const maxErr = Math.max(...history.map((h) => h.errors), 1);
+            return (
+              <motion.div
+                key={i}
+                initial={{ height: 0 }}
+                animate={{ height: `${Math.max((p.errors / maxErr) * 100, 4)}%` }}
+                transition={{ duration: 0.3 }}
+                title={`${p.errors} errors`}
+                style={{
+                  flex: 1, borderRadius: "3px 3px 0 0", cursor: "pointer",
+                  background: p.errors > 3 ? "rgba(239,68,68,0.6)" : "rgba(0,229,180,0.35)",
+                  minHeight: "4px",
+                }}
+              />
+            );
+          })}
         </div>
       </motion.div>
     </div>

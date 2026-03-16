@@ -12,12 +12,12 @@ const Navbar = () => {
       className="fixed top-0 left-0 right-0 z-50 bg-glass"
     >
       <div className="container mx-auto flex items-center justify-between h-16 px-6">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <Zap className="w-5 h-5 text-primary" />
           <span className="font-mono font-bold text-lg text-foreground tracking-tight">
-            inteli<span className="text-primary">route</span>
+            Intelli<span className="text-primary">Route</span>
           </span>
-        </div>
+        </Link>
 
         <div className="hidden md:flex items-center gap-8 text-sm font-mono text-muted-foreground">
           <a href="#features" className="hover:text-primary transition-colors">Features</a>
@@ -29,7 +29,7 @@ const Navbar = () => {
           <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground" asChild>
             <Link to="/login">Login</Link>
           </Button>
-          <Button variant="hero" size="sm" asChild>
+          <Button variant="hero" size="sm" className="!text-black" asChild>
             <Link to="/signup">Get Started</Link>
           </Button>
         </div>

@@ -1,145 +1,264 @@
 import { motion } from "framer-motion";
-import { Activity, Server, Zap, AlertTriangle, ArrowUpRight, ArrowDownRight } from "lucide-react";
+import { Activity, Server, Zap, AlertTriangle } from "lucide-react";
 import { useState, useEffect } from "react";
+import { backendsApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSocket } from "@/hooks/useSocket";
+import { OverviewSkeleton } from "@/components/dashboard/PageSkeleton";
 
-interface StatCard {
-  label: string;
-  value: string;
-  change: string;
-  up: boolean;
-  icon: React.ReactNode;
-}
-
-const mockStats: StatCard[] = [
-  { label: "Total Requests", value: "1.2M", change: "+12.5%", up: true, icon: <Activity className="w-5 h-5" /> },
-  { label: "Active Backends", value: "4", change: "0", up: true, icon: <Server className="w-5 h-5" /> },
-  { label: "Avg Latency", value: "47ms", change: "-8.2%", up: true, icon: <Zap className="w-5 h-5" /> },
-  { label: "Error Rate", value: "0.03%", change: "+0.01%", up: false, icon: <AlertTriangle className="w-5 h-5" /> },
-];
+const card: React.CSSProperties = {
+  background: "#161616",
+  border: "1px solid rgba(255,255,255,0.08)",
+  borderRadius: "12px",
+  padding: "20px 24px",
+};
 
 const DashboardOverview = () => {
-  const [liveRequests, setLiveRequests] = useState<{ time: string; count: number }[]>([]);
+  const { user } = useAuth();
+  const { metrics, connected } = useSocket(user?.tenantId);
+
+  const [ready, setReady] = useState(false);
+  const [backends, setBackends] = useState<any[]>([]);
+  const [liveLatency, setLiveLatency] = useState<{ time: string; value: number }[]>([]);
 
   useEffect(() => {
-    // Simulate live data
-    const interval = setInterval(() => {
-      setLiveRequests((prev) => {
-        const now = new Date().toLocaleTimeString();
-        const newEntry = { time: now, count: Math.floor(Math.random() * 500 + 800) };
-        return [...prev.slice(-19), newEntry];
-      });
-    }, 2000);
-    return () => clearInterval(interval);
+    const t = setTimeout(() => setReady(true), 1000);
+    return () => clearTimeout(t);
   }, []);
 
-  const maxCount = Math.max(...liveRequests.map((r) => r.count), 1);
+  useEffect(() => {
+    backendsApi.list().then(setBackends).catch(() => {});
+  }, []);
+
+  const backendMetricsList = Object.values(metrics);
+
+  const avgLatency = (() => {
+    const all: number[] = backendMetricsList.flatMap((m) => m.latency);
+    return all.length ? Math.round(all.reduce((s, v) => s + v, 0) / all.length) : 0;
+  })();
+
+  const totalErrors = backendMetricsList.reduce((s, m) => s + m.errors.length, 0);
+  const totalActive = backendMetricsList.reduce((s, m) => s + m.active, 0);
+  const isolatedCount = backendMetricsList.filter((m) => m.isIsolated).length;
+
+  useEffect(() => {
+    if (avgLatency === 0) return;
+    setLiveLatency((prev) => {
+      const now = new Date().toLocaleTimeString();
+      return [...prev.slice(-19), { time: now, value: avgLatency }];
+    });
+  }, [avgLatency]);
+
+  const maxLatency = Math.max(...liveLatency.map((r) => r.value), 1);
+
+  const stats = [
+    {
+      label: "Active Backends",
+      value: backends.length.toString(),
+      sub: `${isolatedCount} isolated`,
+      good: isolatedCount === 0,
+      icon: <Server size={18} />,
+    },
+    {
+      label: "Avg Latency",
+      value: avgLatency ? `${avgLatency}ms` : "—",
+      sub: connected ? "live" : "connecting...",
+      good: avgLatency < 100,
+      icon: <Zap size={18} />,
+    },
+    {
+      label: "Active Connections",
+      value: totalActive.toString(),
+      sub: "across all backends",
+      good: true,
+      icon: <Activity size={18} />,
+    },
+    {
+      label: "Error Count",
+      value: totalErrors.toString(),
+      sub: "in current window",
+      good: totalErrors === 0,
+      icon: <AlertTriangle size={18} />,
+    },
+  ];
+
+  if (!ready) return <OverviewSkeleton />;
 
   return (
-    <div className="space-y-8">
+    <div style={{ display: "flex", flexDirection: "column", gap: "28px" }}>
+
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-mono font-bold text-foreground">Control Plane</h1>
-        <p className="text-sm text-muted-foreground font-mono mt-1">Real-time cluster overview</p>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div>
+          <h1 style={{ fontSize: "1.4rem", fontWeight: 700, color: "#fff", fontFamily: "monospace", margin: 0 }}>
+            Control Panel
+          </h1>
+          <p style={{ fontSize: "0.8rem", color: "#6b7280", fontFamily: "monospace", marginTop: "4px" }}>
+            Real-time cluster overview
+          </p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <motion.div
+            animate={connected ? { scale: [1, 1.3, 1], opacity: [1, 0.5, 1] } : {}}
+            transition={{ duration: 1.5, repeat: Infinity }}
+            style={{
+              width: "8px", height: "8px", borderRadius: "50%",
+              backgroundColor: connected ? "#00e5b4" : "#4b5563",
+            }}
+          />
+          <span style={{ fontSize: "0.7rem", fontFamily: "monospace", color: connected ? "#00e5b4" : "#4b5563" }}>
+            {connected ? "LIVE" : "OFFLINE"}
+          </span>
+        </div>
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {mockStats.map((stat, i) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "16px" }}>
+        {stats.map((stat, i) => (
           <motion.div
             key={stat.label}
-            initial={{ opacity: 0, y: 20 }}
+            initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="p-5 rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm"
+            transition={{ delay: i * 0.08 }}
+            style={card}
           >
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-muted-foreground">{stat.icon}</span>
-              <span className={`flex items-center gap-1 text-xs font-mono ${stat.up ? "text-secondary" : "text-destructive"}`}>
-                {stat.up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
-                {stat.change}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "14px" }}>
+              <span style={{ color: "#6b7280" }}>{stat.icon}</span>
+              <span style={{
+                fontSize: "0.7rem", fontFamily: "monospace",
+                color: stat.good ? "#00e5b4" : "#ef4444",
+              }}>
+                {stat.sub}
               </span>
             </div>
-            <div className="text-2xl font-mono font-bold text-foreground">{stat.value}</div>
-            <div className="text-xs font-mono text-muted-foreground mt-1">{stat.label}</div>
+            <div style={{ fontSize: "1.8rem", fontWeight: 700, color: "#fff", fontFamily: "monospace", lineHeight: 1 }}>
+              {stat.value}
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "#6b7280", fontFamily: "monospace", marginTop: "6px" }}>
+              {stat.label}
+            </div>
           </motion.div>
         ))}
       </div>
 
-      {/* Live throughput chart */}
+      {/* Live latency chart */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-        className="rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm p-6"
+        transition={{ delay: 0.35 }}
+        style={{ ...card, padding: "24px" }}
       >
-        <div className="flex items-center justify-between mb-6">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
           <div>
-            <h2 className="text-lg font-mono font-semibold text-foreground">Live Throughput</h2>
-            <p className="text-xs text-muted-foreground font-mono">Requests per interval</p>
+            <div style={{ fontSize: "1rem", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>
+              Live Avg Latency
+            </div>
+            <div style={{ fontSize: "0.72rem", color: "#6b7280", fontFamily: "monospace", marginTop: "2px" }}>
+              ms across all backends
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-            <span className="text-xs font-mono text-primary">LIVE</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <motion.div
+              animate={connected ? { opacity: [1, 0.3, 1] } : {}}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: connected ? "#00e5b4" : "#4b5563" }}
+            />
+            <span style={{ fontSize: "0.65rem", fontFamily: "monospace", color: "#00e5b4" }}>
+              {connected ? "LIVE" : "—"}
+            </span>
           </div>
         </div>
 
-        <div className="flex items-end gap-1 h-40">
-          {liveRequests.map((r, i) => (
+        <div style={{ display: "flex", alignItems: "flex-end", gap: "3px", height: "140px" }}>
+          {liveLatency.length === 0 ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#4b5563", fontSize: "0.8rem", fontFamily: "monospace" }}>
+              {connected ? "Waiting for traffic..." : "Connecting to live feed..."}
+            </div>
+          ) : liveLatency.map((r, i) => (
             <motion.div
               key={i}
-              className="flex-1 bg-primary/20 rounded-t-sm relative group cursor-pointer"
-              style={{ height: `${(r.count / maxCount) * 100}%` }}
               initial={{ height: 0 }}
-              animate={{ height: `${(r.count / maxCount) * 100}%` }}
-              transition={{ duration: 0.5 }}
+              animate={{ height: `${(r.value / maxLatency) * 100}%` }}
+              transition={{ duration: 0.4 }}
+              style={{
+                flex: 1,
+                background: "rgba(0,229,180,0.15)",
+                borderRadius: "3px 3px 0 0",
+                position: "relative",
+                cursor: "pointer",
+                minHeight: "4px",
+              }}
+              title={`${r.value}ms at ${r.time}`}
             >
-              <div className="absolute inset-x-0 bottom-0 bg-primary/60 rounded-t-sm" style={{ height: "30%" }} />
-              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-card border border-border/30 px-2 py-1 rounded text-xs font-mono text-foreground opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                {r.count} req
-              </div>
+              <div style={{
+                position: "absolute", bottom: 0, left: 0, right: 0,
+                height: "35%", background: "rgba(0,229,180,0.4)",
+                borderRadius: "3px 3px 0 0",
+              }} />
             </motion.div>
           ))}
-          {liveRequests.length === 0 && (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm font-mono">
-              Collecting data...
-            </div>
-          )}
         </div>
       </motion.div>
 
-      {/* Recent events */}
+      {/* Backend status table */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5 }}
-        className="rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden"
+        transition={{ delay: 0.45 }}
+        style={{ ...card, padding: 0, overflow: "hidden" }}
       >
-        <div className="px-6 py-4 border-b border-border/20">
-          <h2 className="text-lg font-mono font-semibold text-foreground">Recent Events</h2>
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+          <span style={{ fontSize: "1rem", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>
+            Backend Status
+          </span>
         </div>
-        <div className="divide-y divide-border/10">
-          {[
-            { time: "2s ago", event: "AI arbitration triggered", detail: "Rebalanced us-east-1a weight: 35% → 38%", type: "info" },
-            { time: "15s ago", event: "Health check passed", detail: "eu-west-1a responded in 124ms", type: "success" },
-            { time: "1m ago", event: "Circuit breaker reset", detail: "ap-south-1a back to CLOSED state", type: "warning" },
-            { time: "3m ago", event: "New backend registered", detail: "us-west-2a added to rotation", type: "info" },
-            { time: "5m ago", event: "Error threshold exceeded", detail: "ap-south-1a errors: 4 → 5, circuit OPEN", type: "error" },
-          ].map((e, i) => (
-            <div key={i} className="px-6 py-3 flex items-center gap-4 hover:bg-muted/10 transition-colors">
-              <div className={`w-2 h-2 rounded-full ${
-                e.type === "success" ? "bg-secondary" :
-                e.type === "warning" ? "bg-primary" :
-                e.type === "error" ? "bg-destructive" : "bg-accent"
-              }`} />
-              <div className="flex-1 min-w-0">
-                <span className="text-sm font-mono text-foreground">{e.event}</span>
-                <p className="text-xs text-muted-foreground truncate">{e.detail}</p>
+
+        {backends.length === 0 ? (
+          <div style={{ padding: "32px 24px", textAlign: "center", color: "#4b5563", fontSize: "0.8rem", fontFamily: "monospace" }}>
+            No backends registered yet
+          </div>
+        ) : (
+          backends.map((b, i) => {
+            const m = metrics[b._id] || { latency: [], errors: [], active: 0, isIsolated: false };
+            const lat = m.latency.length
+              ? Math.round(m.latency.reduce((s: number, v: number) => s + v, 0) / m.latency.length)
+              : null;
+            return (
+              <div
+                key={b._id}
+                style={{
+                  padding: "14px 24px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "14px",
+                  borderBottom: i < backends.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                }}
+              >
+                <div style={{
+                  width: "8px", height: "8px", borderRadius: "50%", flexShrink: 0,
+                  backgroundColor: m.isIsolated ? "#ef4444" : "#00e5b4",
+                }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: "0.85rem", fontFamily: "monospace", color: "#fff", fontWeight: 500 }}>{b.name}</div>
+                  <div style={{ fontSize: "0.72rem", fontFamily: "monospace", color: "#6b7280", marginTop: "1px" }}>{b.url}</div>
+                </div>
+                <span style={{ fontSize: "0.75rem", fontFamily: "monospace", color: "#9ca3af" }}>
+                  {lat !== null ? `${lat}ms` : "no traffic"}
+                </span>
+                <span style={{
+                  fontSize: "0.7rem", fontFamily: "monospace", fontWeight: 600,
+                  color: m.isIsolated ? "#ef4444" : "#00e5b4",
+                  background: m.isIsolated ? "rgba(239,68,68,0.1)" : "rgba(0,229,180,0.1)",
+                  padding: "2px 8px", borderRadius: "9999px",
+                }}>
+                  {m.isIsolated ? "ISOLATED" : "OK"}
+                </span>
               </div>
-              <span className="text-xs font-mono text-muted-foreground whitespace-nowrap">{e.time}</span>
-            </div>
-          ))}
-        </div>
+            );
+          })
+        )}
       </motion.div>
+
     </div>
   );
 };

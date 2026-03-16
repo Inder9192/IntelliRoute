@@ -1,6 +1,7 @@
 import { Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 
 const FooterSection = () => {
   return (
@@ -25,7 +26,7 @@ const FooterSection = () => {
               Ready to route <span className="text-gradient-primary">intelligently</span>?
             </h2>
             <p className="text-muted-foreground mb-10 text-lg">
-              Deploy InteliRoute and let AI optimize your traffic in real-time.
+              Deploy IntelliRoute and let AI optimize your traffic in real-time.
             </p>
             <Button variant="hero" size="lg" className="text-base px-10">
               Get Started Free
@@ -37,12 +38,12 @@ const FooterSection = () => {
       {/* Footer */}
       <footer className="border-t border-border/20 py-8">
         <div className="container mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <Zap className="w-4 h-4 text-primary" />
             <span className="font-mono text-sm text-muted-foreground">
-              inteli<span className="text-primary">route</span>
+              Intelli<span className="text-primary">Route</span>
             </span>
-          </div>
+          </Link>
           <p className="text-xs text-muted-foreground font-mono">
             AI-powered reverse proxy load balancer
           </p>

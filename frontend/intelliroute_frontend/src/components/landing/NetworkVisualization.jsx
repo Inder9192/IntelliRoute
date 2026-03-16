@@ -26,7 +26,7 @@ const NetworkVisualization = () => {
       { x: 0.08, y: 0.5, vx: 0, vy: -0.0002, radius: 5, type: "client", label: "Client 2", pulsePhase: 2 },
       { x: 0.08, y: 0.8, vx: 0, vy: 0.0004, radius: 5, type: "client", label: "Client 3", pulsePhase: 4 },
       // Proxy (center)
-      { x: 0.5, y: 0.5, vx: 0, vy: 0, radius: 14, type: "proxy", label: "InteliRoute", pulsePhase: 0 },
+      { x: 0.5, y: 0.5, vx: 0, vy: 0, radius: 14, type: "proxy", label: "IntelliRoute", pulsePhase: 0 },
       // Backends (right side)
       { x: 0.88, y: 0.15, vx: 0, vy: 0.0002, radius: 7, type: "backend", label: "Server A", pulsePhase: 1 },
       { x: 0.88, y: 0.42, vx: 0, vy: -0.0003, radius: 7, type: "backend", label: "Server B", pulsePhase: 3 },

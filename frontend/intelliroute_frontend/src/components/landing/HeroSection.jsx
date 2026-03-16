@@ -47,9 +47,9 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.5 }}
               className="text-lg text-muted-foreground max-w-lg leading-relaxed"
             >
-              InteliRoute is an AI-powered reverse proxy that dynamically routes traffic
-              using real-time scoring, circuit breakers, and AWS Bedrock arbitration.
-              Multi-tenant by design.
+              IntelliRoute is an intelligent traffic router that automatically directs your requests
+              to the best-performing server in real-time.
+              Designed for teams managing multiple servers.
             </motion.p>
 
             <motion.div
@@ -58,7 +58,7 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.7 }}
               className="flex flex-wrap gap-4"
             >
-              <Button variant="hero" size="lg" className="gap-2">
+              <Button variant="hero" size="lg" className="gap-2 !text-black">
                 Start Routing <ArrowRight className="w-4 h-4" />
               </Button>
               <Button variant="heroOutline" size="lg" className="gap-2">

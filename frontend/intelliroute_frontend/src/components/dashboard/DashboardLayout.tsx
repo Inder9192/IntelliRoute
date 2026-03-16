@@ -3,10 +3,10 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 
 const DashboardLayout = () => {
   return (
-    <div className="min-h-screen bg-background flex">
+    <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "#0d0d0d" }}>
       <DashboardSidebar />
-      <main className="flex-1 overflow-auto">
-        <div className="p-8">
+      <main style={{ flex: 1, overflowY: "auto" }}>
+        <div style={{ padding: "40px 48px" }}>
           <Outlet />
         </div>
       </main>
