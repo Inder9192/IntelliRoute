@@ -6,7 +6,7 @@ function calculateScore(stats) {
 
   let score = 100;
   score -= avgLatency * 0.2;
-  score -= stats.errors * 10;
+  score -= (stats.consecutiveErrors || 0) * 10;
   score -= stats.active * 2;
 
   return Math.max(score, 0);

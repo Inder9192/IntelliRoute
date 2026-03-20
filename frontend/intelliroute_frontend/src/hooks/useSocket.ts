@@ -5,9 +5,22 @@ const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 export interface BackendMetric {
   latency: number[];
-  errors: number[];
+  consecutiveErrors: number;
+  totalErrors: number;
   active: number;
   isIsolated: boolean;
+}
+
+export interface RoutingEvent {
+  requestId: string;
+  backendId: string;
+  backendName: string;
+  backendUrl: string;
+  method: string;
+  path: string;
+  timestamp: number;
+  latency?: number;
+  status: "pending" | "success" | "error";
 }
 
 export type MetricsSnapshot = Record<string, Record<string, BackendMetric>>;
@@ -16,6 +29,7 @@ export function useSocket(tenantId: string | undefined) {
   const socketRef = useRef<Socket | null>(null);
   const [metrics, setMetrics] = useState<Record<string, BackendMetric>>({});
   const [connected, setConnected] = useState(false);
+  const [routingLog, setRoutingLog] = useState<RoutingEvent[]>([]);
 
   useEffect(() => {
     if (!tenantId) return;
@@ -54,7 +68,22 @@ export function useSocket(tenantId: string | undefined) {
       setMetrics((prev) => {
         const existing = prev[data.backendId];
         if (!existing) return prev;
-        return { ...prev, [data.backendId]: { ...existing, isIsolated: false, errors: [] } };
+        return { ...prev, [data.backendId]: { ...existing, isIsolated: false, consecutiveErrors: 0 } };
+      });
+    });
+
+    socket.on("request:routed", (data: RoutingEvent & { tenantId: string }) => {
+      if (data.tenantId !== tenantId) return;
+      setRoutingLog((prev) => {
+        // update existing entry by requestId if it exists (pending → success/error)
+        const idx = prev.findIndex((e) => e.requestId === data.requestId);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...data };
+          return updated;
+        }
+        // new entry, keep last 50
+        return [data, ...prev].slice(0, 50);
       });
     });
 
@@ -63,5 +92,5 @@ export function useSocket(tenantId: string | undefined) {
     };
   }, [tenantId]);
 
-  return { metrics, connected };
+  return { metrics, connected, routingLog };
 }

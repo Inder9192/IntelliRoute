@@ -13,6 +13,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
+  apiKey: string | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
   signup: (data: { name: string; email: string; password: string; company?: string }) => Promise<void>;
@@ -34,14 +35,17 @@ const decodeToken = (token: string) => {
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [apiKey, setApiKey] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const savedToken = localStorage.getItem("token");
     const savedUser = localStorage.getItem("user");
+    const savedApiKey = localStorage.getItem("apiKey");
     if (savedToken && savedUser) {
       setToken(savedToken);
       setUser(JSON.parse(savedUser));
+      setApiKey(savedApiKey);
     }
     setIsLoading(false);
   }, []);
@@ -49,8 +53,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string) => {
     const res = await authApi.login(email, password);
     localStorage.setItem("token", res.token);
+    if (res.apiKey) localStorage.setItem("apiKey", res.apiKey);
 
-    // Create user object from token claims
     const decoded = decodeToken(res.token);
     const userData: User = {
       id: decoded?.userId || "",
@@ -63,6 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem("user", JSON.stringify(userData));
     setToken(res.token);
     setUser(userData);
+    if (res.apiKey) setApiKey(res.apiKey);
   };
 
   const signup = async (data: { name: string; email: string; password: string; company?: string }) => {
@@ -75,12 +80,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("apiKey");
     setToken(null);
     setUser(null);
+    setApiKey(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, signup, logout, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, apiKey, isLoading, login, signup, logout, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

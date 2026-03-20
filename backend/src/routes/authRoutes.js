@@ -1,10 +1,13 @@
 const express = require("express");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const crypto = require("crypto");
 
 const User = require("../models/User");
 const Tenant = require("../models/Tenant");
 const { registerSchema, loginSchema } = require("../validators/authValidators");
+
+const authMiddleware = require("../middleware/authMiddleware");
 
 const router = express.Router();
 
@@ -21,7 +24,9 @@ router.post("/register", async (req, res) => {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  const tenant = await Tenant.create({ name: companyName });
+  const apiKey = "ir_" + crypto.randomBytes(24).toString("hex");
+
+  const tenant = await Tenant.create({ name: companyName, apiKey });
 
   await User.create({
     name,
@@ -53,7 +58,30 @@ router.post("/login", async (req, res) => {
     { expiresIn: "1d" }
   );
 
-  res.json({ token });
+  const tenant = await Tenant.findById(user.tenantId);
+
+  res.json({ token, apiKey: tenant?.apiKey || null });
+});
+
+router.post("/change-password", authMiddleware, async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword)
+    return res.status(400).json({ msg: "Both fields are required" });
+
+  if (newPassword.length < 6)
+    return res.status(400).json({ msg: "New password must be at least 6 characters" });
+
+  const user = await User.findById(req.user.userId);
+  if (!user) return res.status(404).json({ msg: "User not found" });
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) return res.status(400).json({ msg: "Current password is incorrect" });
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  await user.save();
+
+  res.json({ msg: "Password changed successfully" });
 });
 
 module.exports = router;

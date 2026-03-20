@@ -13,7 +13,7 @@ const card: React.CSSProperties = {
   padding: "20px 24px",
 };
 
-interface LatencyPoint { time: string; latency: number; errors: number; }
+interface LatencyPoint { time: string; latency: number; errors: number; _cumErrors: number; }
 
 const MetricsPage = () => {
   const { user } = useAuth();
@@ -39,19 +39,21 @@ const MetricsPage = () => {
       : metrics[selectedId] ? [metrics[selectedId]] : [];
     if (relevantMetrics.length === 0) return;
     const allLatencies = relevantMetrics.flatMap((m) => m.latency);
-    const allErrors = relevantMetrics.flatMap((m) => m.errors);
+    const totalErrors = relevantMetrics.reduce((s, m) => s + (m.totalErrors || 0), 0);
     const avgLat = allLatencies.length
       ? Math.round(allLatencies.reduce((s, v) => s + v, 0) / allLatencies.length) : 0;
     if (avgLat === 0) return;
     setHistory((prev) => {
       const now = new Date().toLocaleTimeString();
-      return [...prev.slice(-29), { time: now, latency: avgLat, errors: allErrors.length }];
+      const lastCum = prev.length > 0 ? prev[prev.length - 1]._cumErrors : totalErrors;
+      const delta = Math.max(0, totalErrors - lastCum);
+      return [...prev.slice(-29), { time: now, latency: avgLat, errors: delta, _cumErrors: totalErrors }];
     });
   }, [metrics, selectedId]);
 
   const maxLatency = Math.max(...history.map((p) => p.latency), 1);
   const avgLatency = history.length ? Math.round(history.reduce((s, p) => s + p.latency, 0) / history.length) : 0;
-  const totalErrors = history.reduce((s, p) => s + p.errors, 0);
+  const totalErrors = history.length ? history[history.length - 1].errors : 0;
 
   const summaryCards = [
     { label: "Avg Latency", value: avgLatency ? `${avgLatency}ms` : "—", icon: <Clock size={16} />, color: "#00e5b4" },
@@ -142,20 +144,20 @@ const MetricsPage = () => {
               {connected ? "Waiting for traffic..." : "Connecting..."}
             </div>
           ) : (
-            <svg width="100%" height="100%" preserveAspectRatio="none">
+            <svg width="100%" height="180" viewBox="0 0 600 180" preserveAspectRatio="none">
               {[0, 0.25, 0.5, 0.75, 1].map((y) => (
-                <line key={y} x1="0" x2="100%" y1={`${y * 100}%`} y2={`${y * 100}%`} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
+                <line key={y} x1="0" x2="600" y1={y * 180} y2={y * 180} stroke="rgba(255,255,255,0.05)" strokeWidth="1" />
               ))}
               <path
-                d={`M 0 180 ` + history.map((p, i) => `L ${(i / (history.length - 1)) * 100}% ${180 - (p.latency / maxLatency) * 165}`).join(" ") + ` L 100% 180 Z`}
+                d={`M 0 180 ` + history.map((p, i) => `L ${(i / (history.length - 1)) * 600} ${180 - (p.latency / maxLatency) * 165}`).join(" ") + ` L 600 180 Z`}
                 fill="rgba(0,229,180,0.08)"
               />
               <polyline
-                points={history.map((p, i) => `${(i / (history.length - 1)) * 100}%,${180 - (p.latency / maxLatency) * 165}`).join(" ")}
+                points={history.map((p, i) => `${(i / (history.length - 1)) * 600},${180 - (p.latency / maxLatency) * 165}`).join(" ")}
                 fill="none" stroke="#00e5b4" strokeWidth="2"
               />
               {history.map((p, i) => (
-                <circle key={i} cx={`${(i / (history.length - 1)) * 100}%`} cy={180 - (p.latency / maxLatency) * 165} r="2.5" fill="#00e5b4" />
+                <circle key={i} cx={(i / (history.length - 1)) * 600} cy={180 - (p.latency / maxLatency) * 165} r="2.5" fill="#00e5b4" />
               ))}
             </svg>
           )}

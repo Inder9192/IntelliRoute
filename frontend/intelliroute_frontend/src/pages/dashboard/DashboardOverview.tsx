@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Activity, Server, Zap, AlertTriangle } from "lucide-react";
+import { Activity, Server, Zap, AlertTriangle, Copy, Check } from "lucide-react";
 import { useState, useEffect } from "react";
 import { backendsApi } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,12 +14,28 @@ const card: React.CSSProperties = {
 };
 
 const DashboardOverview = () => {
-  const { user } = useAuth();
-  const { metrics, connected } = useSocket(user?.tenantId);
+  const { user, apiKey } = useAuth();
+  const { metrics, connected, routingLog } = useSocket(user?.tenantId);
 
   const [ready, setReady] = useState(false);
   const [backends, setBackends] = useState<any[]>([]);
   const [liveLatency, setLiveLatency] = useState<{ time: string; value: number }[]>([]);
+  const [copied, setCopied] = useState(false);
+  const [copiedProxy, setCopiedProxy] = useState(false);
+
+  const proxyBase = (import.meta.env.VITE_API_URL || "http://localhost:4000") + "/proxy";
+
+  const copyKey = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyProxy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedProxy(true);
+    setTimeout(() => setCopiedProxy(false), 2000);
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setReady(true), 1000);
@@ -37,7 +53,7 @@ const DashboardOverview = () => {
     return all.length ? Math.round(all.reduce((s, v) => s + v, 0) / all.length) : 0;
   })();
 
-  const totalErrors = backendMetricsList.reduce((s, m) => s + m.errors.length, 0);
+  const totalErrors = backendMetricsList.reduce((s, m) => s + (m.totalErrors || 0), 0);
   const totalActive = backendMetricsList.reduce((s, m) => s + m.active, 0);
   const isolatedCount = backendMetricsList.filter((m) => m.isIsolated).length;
 
@@ -200,6 +216,56 @@ const DashboardOverview = () => {
         </div>
       </motion.div>
 
+      {/* API Key + Integration card */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.4 }}
+        style={{ ...card, padding: "24px" }}
+      >
+        <div style={{ fontSize: "1rem", fontWeight: 600, color: "#fff", fontFamily: "monospace", marginBottom: "16px" }}>
+          Integration
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
+          <div>
+            <div style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#6b7280", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Your API Key
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ flex: 1, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px", fontFamily: "monospace", fontSize: "0.8rem", color: "#00e5b4", letterSpacing: "0.05em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {apiKey || "Log out and log in again to see your key"}
+              </div>
+              {apiKey && (
+                <button onClick={() => copyKey(apiKey)} style={{ flexShrink: 0, background: "rgba(0,229,180,0.1)", border: "1px solid rgba(0,229,180,0.2)", borderRadius: "8px", padding: "10px 14px", cursor: "pointer", color: "#00e5b4", display: "flex", alignItems: "center", gap: "6px", fontFamily: "monospace", fontSize: "0.75rem" }}>
+                  {copied ? <Check size={13} /> : <Copy size={13} />}
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              )}
+            </div>
+          </div>
+          <div>
+            <div style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#6b7280", marginBottom: "6px", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+              Proxy Endpoint (point your app here)
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+              <div style={{ flex: 1, background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px", fontFamily: "monospace", fontSize: "0.8rem", color: "#9ca3af" }}>
+                {proxyBase}/<span style={{ color: "#6b7280" }}>your-path</span>
+              </div>
+              <button onClick={() => copyProxy(proxyBase)} style={{ flexShrink: 0, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: "8px", padding: "10px 14px", cursor: "pointer", color: "#9ca3af", display: "flex", alignItems: "center", gap: "6px", fontFamily: "monospace", fontSize: "0.75rem" }}>
+                {copiedProxy ? <Check size={13} /> : <Copy size={13} />}
+                {copiedProxy ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+          <div style={{ background: "#1a1a1a", border: "1px solid rgba(255,255,255,0.06)", borderRadius: "8px", padding: "14px" }}>
+            <div style={{ fontSize: "0.7rem", fontFamily: "monospace", color: "#6b7280", marginBottom: "8px" }}>Usage example</div>
+            <pre style={{ margin: 0, fontFamily: "monospace", fontSize: "0.75rem", color: "#9ca3af", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{`fetch("${proxyBase}/api/users", {
+  headers: { "X-IntelliRoute-Key": "${apiKey || "your-api-key"}" }
+})`}</pre>
+          </div>
+        </div>
+      </motion.div>
+
       {/* Backend status table */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
@@ -256,6 +322,83 @@ const DashboardOverview = () => {
               </div>
             );
           })
+        )}
+      </motion.div>
+
+      {/* Live Routing Feed */}
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.55 }}
+        style={{ ...card, padding: 0, overflow: "hidden" }}
+      >
+        <div style={{ padding: "18px 24px", borderBottom: "1px solid rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: "1rem", fontWeight: 600, color: "#fff", fontFamily: "monospace" }}>Live Routing Feed</span>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <motion.div
+              animate={connected ? { opacity: [1, 0.3, 1] } : {}}
+              transition={{ duration: 1.2, repeat: Infinity }}
+              style={{ width: "6px", height: "6px", borderRadius: "50%", backgroundColor: connected ? "#00e5b4" : "#4b5563" }}
+            />
+            <span style={{ fontSize: "0.65rem", fontFamily: "monospace", color: connected ? "#00e5b4" : "#4b5563" }}>
+              {connected ? "LIVE" : "OFFLINE"}
+            </span>
+          </div>
+        </div>
+
+        {routingLog.length === 0 ? (
+          <div style={{ padding: "32px 24px", textAlign: "center", color: "#4b5563", fontSize: "0.8rem", fontFamily: "monospace" }}>
+            {connected ? "Waiting for requests..." : "Connecting..."}
+          </div>
+        ) : (
+          routingLog.map((entry, i) => (
+            <motion.div
+              key={entry.requestId}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              style={{
+                padding: "12px 24px",
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                borderBottom: i < routingLog.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                fontFamily: "monospace",
+              }}
+            >
+              {/* status dot */}
+              <div style={{
+                width: "7px", height: "7px", borderRadius: "50%", flexShrink: 0,
+                backgroundColor: entry.status === "success" ? "#00e5b4" : entry.status === "error" ? "#ef4444" : "#f59e0b",
+              }} />
+
+              {/* method + path */}
+              <span style={{ fontSize: "0.75rem", color: "#6b7280", flexShrink: 0 }}>
+                {entry.method}
+              </span>
+              <span style={{ fontSize: "0.78rem", color: "#9ca3af", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {entry.path}
+              </span>
+
+              {/* arrow + backend */}
+              <span style={{ fontSize: "0.7rem", color: "#4b5563", flexShrink: 0 }}>→</span>
+              <span style={{ fontSize: "0.78rem", color: "#fff", fontWeight: 600, flexShrink: 0 }}>
+                {entry.backendName}
+              </span>
+
+              {/* latency */}
+              {entry.latency !== undefined && (
+                <span style={{ fontSize: "0.7rem", color: entry.latency < 100 ? "#00e5b4" : entry.latency < 300 ? "#f59e0b" : "#ef4444", flexShrink: 0 }}>
+                  {entry.latency}ms
+                </span>
+              )}
+
+              {/* time */}
+              <span style={{ fontSize: "0.68rem", color: "#4b5563", flexShrink: 0 }}>
+                {new Date(entry.timestamp).toLocaleTimeString()}
+              </span>
+            </motion.div>
+          ))
         )}
       </motion.div>
 

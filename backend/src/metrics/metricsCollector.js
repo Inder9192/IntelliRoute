@@ -4,14 +4,9 @@ class MetricsCollector {
     this.io = null;
 
     this.WINDOW_SIZE = 20;
-    this.ERROR_THRESHOLD = 5;
+    this.ERROR_THRESHOLD = 3; // 3 consecutive failures to isolate
 
-    /* broadcast snapshot every 5 seconds */
-    setInterval(() => {
-      if (this.io) {
-        this.io.emit("metrics:full", this.metrics);
-      }
-    }, 5000);
+    /* metrics are pushed live after every request via proxyServer — no interval needed */
   }
 
   setSocket(io) {
@@ -29,7 +24,8 @@ class MetricsCollector {
       if (!this.metrics[tenantId][id]) {
         this.metrics[tenantId][id] = {
           latency: [],
-          errors: [],
+          consecutiveErrors: 0,
+          totalErrors: 0,
           active: 0,
           isIsolated: false
         };
@@ -52,19 +48,10 @@ class MetricsCollector {
 
     /* Sliding latency window */
     stats.latency.push(latency);
+    if (stats.latency.length > this.WINDOW_SIZE) stats.latency.shift();
 
-    if (stats.latency.length > this.WINDOW_SIZE) {
-      stats.latency.shift();
-    }
-
-    /* emit live update */
-    if (this.io) {
-      this.io.emit("metrics:update", {
-        tenantId,
-        backendId,
-        latency
-      });
-    }
+    /* Success resets the consecutive error counter */
+    stats.consecutiveErrors = 0;
   }
 
   recordError(tenantId, backendId) {
@@ -73,23 +60,22 @@ class MetricsCollector {
 
     stats.active--;
 
-    stats.errors.push(Date.now());
+    if (stats.isIsolated) return; // already isolated, stop counting
 
-    if (stats.errors.length > this.WINDOW_SIZE) {
-      stats.errors.shift();
-    }
+    /* CONSECUTIVE error tracking — resets on any success */
+    stats.consecutiveErrors = (stats.consecutiveErrors || 0) + 1;
+    stats.totalErrors = (stats.totalErrors || 0) + 1;
 
-    /* CIRCUIT BREAKER */
-    if (stats.errors.length >= this.ERROR_THRESHOLD) {
+    /* CIRCUIT BREAKER — trips only after N consecutive failures */
+    if (stats.consecutiveErrors >= this.ERROR_THRESHOLD) {
       stats.isIsolated = true;
+      stats.consecutiveErrors = 0;
 
-      console.log(`🚨 Backend ${backendId} isolated`);
+      console.log(`🚨 Backend ${backendId} isolated after ${this.ERROR_THRESHOLD} consecutive failures`);
 
       if (this.io) {
-        this.io.emit("backend:isolated", {
-          tenantId,
-          backendId
-        });
+        this.io.emit("backend:isolated", { tenantId, backendId: backendId.toString() });
+        this.io.emit("metrics:full", this.metrics);
       }
     }
   }

@@ -3,8 +3,8 @@ const https = require("https");
 const BackendService = require("../models/backendService");
 const metricsCollector = require("../metrics/metricsCollector");
 
-const HEALTH_CHECK_INTERVAL_MS = 10000; // 10 seconds
-const RECOVERY_THRESHOLD = 5; // 5 consecutive successful pings to recover
+const HEALTH_CHECK_INTERVAL_MS = 5000; // 5 seconds
+const RECOVERY_THRESHOLD = 3; // 3 consecutive successful pings to recover (~15 seconds)
 
 // Track consecutive successes per backend: { backendId: count }
 const consecutiveSuccesses = {};
@@ -21,37 +21,47 @@ function ping(url) {
 }
 
 async function runHealthChecks() {
-  const allMetrics = metricsCollector.metrics;
+  // ping ALL backends from DB — not just ones tracked in memory
+  const allBackends = await BackendService.find({ isActive: true }).catch(() => []);
 
-  for (const [tenantId, backends] of Object.entries(allMetrics)) {
-    for (const [backendId, stats] of Object.entries(backends)) {
-      if (!stats.isIsolated) continue;
+  for (const backend of allBackends) {
+    const backendId = backend._id.toString();
+    const tenantId = backend.tenantId.toString();
 
-      // Find the backend URL
-      const backend = await BackendService.findById(backendId).catch(() => null);
-      if (!backend) continue;
+    // ensure metrics entry exists
+    if (!metricsCollector.metrics[tenantId]) metricsCollector.metrics[tenantId] = {};
+    if (!metricsCollector.metrics[tenantId][backendId]) {
+      metricsCollector.metrics[tenantId][backendId] = { latency: [], consecutiveErrors: 0, totalErrors: 0, active: 0, isIsolated: false };
+    }
 
-      const alive = await ping(backend.url);
+    const stats = metricsCollector.metrics[tenantId][backendId];
 
-      if (alive) {
-        consecutiveSuccesses[backendId] = (consecutiveSuccesses[backendId] || 0) + 1;
+    const alive = await ping(backend.url);
+
+    if (alive) {
+      consecutiveSuccesses[backendId] = (consecutiveSuccesses[backendId] || 0) + 1;
+
+      if (stats.isIsolated) {
         console.log(`✅ Health check OK for ${backend.name} (${consecutiveSuccesses[backendId]}/${RECOVERY_THRESHOLD})`);
+      }
 
-        if (consecutiveSuccesses[backendId] >= RECOVERY_THRESHOLD) {
-          // Recover the backend
-          stats.isIsolated = false;
-          stats.errors = [];
-          consecutiveSuccesses[backendId] = 0;
-
-          console.log(`🟢 Backend ${backend.name} recovered — circuit closed`);
-
-          if (metricsCollector.io) {
-            metricsCollector.io.emit("backend:recovered", { tenantId, backendId });
-          }
-        }
-      } else {
-        // Failed ping — reset the streak
+      if (stats.isIsolated && consecutiveSuccesses[backendId] >= RECOVERY_THRESHOLD) {
+        stats.isIsolated = false;
+        stats.consecutiveErrors = 0;
+        stats.active = 0;
         consecutiveSuccesses[backendId] = 0;
+
+        console.log(`🟢 Backend ${backend.name} recovered — circuit closed`);
+
+        if (metricsCollector.io) {
+          metricsCollector.io.emit("backend:recovered", { tenantId, backendId });
+          metricsCollector.io.emit("metrics:full", metricsCollector.metrics);
+        }
+      }
+    } else {
+      // always reset success streak on failure (isolated or not)
+      consecutiveSuccesses[backendId] = 0;
+      if (stats.isIsolated) {
         console.log(`❌ Health check FAILED for ${backend.name}`);
       }
     }

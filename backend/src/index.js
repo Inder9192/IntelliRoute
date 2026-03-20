@@ -11,6 +11,7 @@ const authRoutes = require("./routes/authRoutes");
 const backendRoutes = require("./routes/backendRoutes");
 const metricsRoutes = require("./routes/metricsRoutes");
 const authMiddleware = require("./middleware/authMiddleware");
+const apiKeyMiddleware = require("./middleware/apiKeyMiddleware");
 const proxyHandler = require("./proxy/proxyServer");
 
 const metricsCollector = require("./metrics/metricsCollector");
@@ -26,10 +27,17 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/backends", backendRoutes);
 app.use("/api/metrics", metricsRoutes);
-app.use("/api/proxy", authMiddleware, proxyHandler);
+app.use("/api/proxy", authMiddleware, proxyHandler);      // dashboard testing (JWT)
+app.use("/proxy", apiKeyMiddleware, proxyHandler);         // external apps (API key)
 
 app.get("/", (req, res) => {
   res.send("🔥 IntelliRoute Backend Running");
+});
+
+// Debug: see what tenantIds are in metrics
+app.get("/debug/metrics", (req, res) => {
+  const keys = Object.keys(metricsCollector.metrics);
+  res.json({ tenantIds: keys, metrics: metricsCollector.metrics });
 });
 
 /* SOCKET SERVER */

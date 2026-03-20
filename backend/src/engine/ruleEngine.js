@@ -60,7 +60,8 @@ function applyAIAdjustments(plan, adjustments) {
 async function buildRoutingPlan(backends, metrics) {
   const healthy = backends.filter(b => {
     const stats = metrics[b._id.toString()];
-    return stats && !stats.isIsolated;
+    // no stats yet = backend is new and healthy, include it
+    return !stats || !stats.isIsolated;
   });
 
   if (!healthy.length) {
@@ -69,7 +70,8 @@ async function buildRoutingPlan(backends, metrics) {
 
   const scored = healthy.map(b => ({
     backend: b,
-    score: calculateScore(metrics[b._id.toString()])
+    // no stats yet = treat as perfect score so new backends get traffic
+    score: calculateScore(metrics[b._id.toString()] || { latency: [], consecutiveErrors: 0, active: 0 })
   }));
 
   let routingPlan = normalizeWeights(scored);
