@@ -29,11 +29,11 @@ const Navbar = () => {
           <Button variant="ghost" size="sm" className="font-mono text-muted-foreground hover:text-foreground" asChild>
             <Link to="/login">Login</Link>
           </Button>
-          <Button variant="hero" size="sm" className="!text-black" asChild>
+          <Button variant="hero" size="sm" className="gap-2 !text-black" asChild>
             <Link to="/signup">Get Started</Link>
           </Button>
         </div>
-      </div>
+      </div>  
     </motion.nav>
   );
 };

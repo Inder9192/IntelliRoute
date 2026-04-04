@@ -1,4 +1,5 @@
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Terminal } from "lucide-react";
 import NetworkVisualization from "./NetworkVisualization";
@@ -58,12 +59,12 @@ const HeroSection = () => {
               transition={{ duration: 0.6, delay: 0.7 }}
               className="flex flex-wrap gap-4"
             >
-              <Button variant="hero" size="lg" className="gap-2 !text-black">
-                Start Routing <ArrowRight className="w-4 h-4" />
-              </Button>
-              <Button variant="heroOutline" size="lg" className="gap-2">
-                <Terminal className="w-4 h-4" /> View Docs
-              </Button>
+              <Link to="/signup">
+                <Button variant="hero" size="sm" className="gap-2 !text-black">
+                  Start Routing <ArrowRight className="w-4 h-4" />
+                </Button>
+              </Link>
+              
             </motion.div>
 
             <motion.div

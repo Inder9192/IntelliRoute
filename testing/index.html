@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>IntelliRoute Test App</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0d0d0d; color: #fff; font-family: monospace; padding: 32px; }
+    h1 { font-size: 1.2rem; color: #00e5b4; margin-bottom: 4px; }
+    p { font-size: 0.75rem; color: #6b7280; margin-bottom: 24px; }
+
+    .config { background: #161616; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; margin-bottom: 24px; display: flex; flex-direction: column; gap: 12px; }
+    label { font-size: 0.7rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.08em; display: block; margin-bottom: 4px; }
+    input { width: 100%; padding: 10px 12px; background: #1a1a1a; border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; color: #fff; font-family: monospace; font-size: 0.85rem; outline: none; }
+    input:focus { border-color: #00e5b4; }
+
+    .controls { display: flex; gap: 10px; margin-bottom: 24px; flex-wrap: wrap; }
+    button { padding: 10px 20px; border-radius: 9999px; border: none; font-family: monospace; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: opacity 0.2s; }
+    button:hover { opacity: 0.85; }
+    #btnStart { background: #00e5b4; color: #0d0d0d; }
+    #btnStop  { background: #ef4444; color: #fff; }
+    #btnClear { background: #1a1a1a; color: #9ca3af; border: 1px solid rgba(255,255,255,0.1); }
+    #btnOnce  { background: #6366f1; color: #fff; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+    .stat { background: #161616; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 16px; }
+    .stat-val { font-size: 1.6rem; font-weight: 700; color: #fff; }
+    .stat-label { font-size: 0.7rem; color: #6b7280; margin-top: 4px; }
+
+    .log { background: #161616; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; overflow: hidden; }
+    .log-header { padding: 14px 20px; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 0.75rem; color: #6b7280; display: flex; justify-content: space-between; }
+    .log-body { max-height: 420px; overflow-y: auto; }
+    .log-row { padding: 10px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid rgba(255,255,255,0.03); font-size: 0.78rem; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateX(-6px); } to { opacity: 1; transform: none; } }
+    .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .ok   { background: #00e5b4; }
+    .err  { background: #ef4444; }
+    .num  { color: #4b5563; min-width: 28px; }
+    .server { font-weight: 600; }
+    .lat  { margin-left: auto; }
+    .time { color: #4b5563; font-size: 0.68rem; }
+
+    .bar-wrap { margin-bottom: 24px; background: #161616; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; }
+    .bar-title { font-size: 0.75rem; color: #6b7280; margin-bottom: 14px; }
+    .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; font-size: 0.75rem; }
+    .bar-name { width: 90px; color: #9ca3af; }
+    .bar-track { flex: 1; background: rgba(255,255,255,0.05); border-radius: 4px; height: 10px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; background: #00e5b4; }
+    .bar-count { width: 40px; text-align: right; color: #6b7280; }
+  </style>
+</head>
+<body>
+
+  <h1>IntelliRoute — Test App</h1>
+  <p>Sends requests through your IntelliRoute proxy and shows which backend handled each one.</p>
+
+  <!-- Config -->
+  <div class="config">
+    <div>
+      <label>IntelliRoute Proxy URL</label>
+      <input id="proxyUrl" value="http://localhost:4000/proxy/data" />
+    </div>
+    <div>
+      <label>Your API Key</label>
+      <input id="apiKey" placeholder="ir_..." />
+    </div>
+    <div>
+      <label>Interval between requests (ms)</label>
+      <input id="interval" type="number" value="800" />
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="controls">
+    <button id="btnStart">▶ Start Loop</button>
+    <button id="btnStop">■ Stop</button>
+    <button id="btnOnce">→ Send Once</button>
+    <button id="btnClear">Clear Log</button>
+  </div>
+
+  <!-- Stats -->
+  <div class="stats">
+    <div class="stat"><div class="stat-val" id="statTotal">0</div><div class="stat-label">Total Requests</div></div>
+    <div class="stat"><div class="stat-val" id="statOk" style="color:#00e5b4">0</div><div class="stat-label">Success</div></div>
+    <div class="stat"><div class="stat-val" id="statErr" style="color:#ef4444">0</div><div class="stat-label">Errors</div></div>
+    <div class="stat"><div class="stat-val" id="statAvg">—</div><div class="stat-label">Avg Latency</div></div>
+  </div>
+
+  <!-- Traffic distribution bar -->
+  <div class="bar-wrap">
+    <div class="bar-title">TRAFFIC DISTRIBUTION</div>
+    <div id="bars"></div>
+  </div>
+
+  <!-- Log -->
+  <div class="log">
+    <div class="log-header">
+      <span>REQUEST LOG</span>
+      <span id="logStatus" style="color:#00e5b4">idle</span>
+    </div>
+    <div class="log-body" id="logBody"></div>
+  </div>
+
+  <script>
+    let loopTimer = null;
+    let reqCount = 0;
+    let okCount = 0;
+    let errCount = 0;
+    let latencies = [];
+    let distribution = {};
+
+    const $ = id => document.getElementById(id);
+
+    function getConfig() {
+      return {
+        url: $("proxyUrl").value.trim(),
+        key: $("apiKey").value.trim(),
+        interval: parseInt($("interval").value) || 800
+      };
+    }
+
+    async function sendRequest() {
+      const { url, key } = getConfig();
+      if (!key) { alert("Paste your API key first"); return; }
+
+      const start = Date.now();
+      reqCount++;
+      $("statTotal").textContent = reqCount;
+
+      try {
+        const res = await fetch(url, {
+          headers: { "X-IntelliRoute-Key": key }
+        });
+        const latency = Date.now() - start;
+        latencies.push(latency);
+        if (latencies.length > 50) latencies.shift();
+
+        if (res.ok) {
+          const data = await res.json();
+          okCount++;
+          $("statOk").textContent = okCount;
+
+          const serverName = data.server || "unknown";
+          distribution[serverName] = (distribution[serverName] || 0) + 1;
+          updateBars();
+          addLog(reqCount, true, serverName, latency, data.port);
+        } else {
+          errCount++;
+          $("statErr").textContent = errCount;
+          addLog(reqCount, false, `HTTP ${res.status}`, latency, null);
+        }
+      } catch (e) {
+        const latency = Date.now() - start;
+        errCount++;
+        $("statErr").textContent = errCount;
+        addLog(reqCount, false, e.message, latency, null);
+      }
+
+      const avg = Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length);
+      $("statAvg").textContent = avg + "ms";
+    }
+
+    function addLog(num, ok, server, latency, port) {
+      const body = $("logBody");
+      const row = document.createElement("div");
+      row.className = "log-row";
+
+      const latColor = latency < 100 ? "#00e5b4" : latency < 300 ? "#f59e0b" : "#ef4444";
+
+      row.innerHTML = `
+        <div class="dot ${ok ? "ok" : "err"}"></div>
+        <span class="num">#${num}</span>
+        <span class="server">${server}</span>
+        ${port ? `<span style="color:#4b5563">:${port}</span>` : ""}
+        <span class="lat" style="color:${latColor}">${latency}ms</span>
+        <span class="time">${new Date().toLocaleTimeString()}</span>
+      `;
+
+      body.insertBefore(row, body.firstChild);
+      while (body.children.length > 100) body.removeChild(body.lastChild);
+    }
+
+    function updateBars() {
+      const total = Object.values(distribution).reduce((a, b) => a + b, 0);
+      const container = $("bars");
+      container.innerHTML = "";
+
+      const colors = ["#00e5b4", "#6366f1", "#f59e0b", "#ef4444"];
+      let i = 0;
+      for (const [name, count] of Object.entries(distribution)) {
+        const pct = total ? Math.round((count / total) * 100) : 0;
+        container.innerHTML += `
+          <div class="bar-row">
+            <div class="bar-name">${name}</div>
+            <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${colors[i % colors.length]}"></div></div>
+            <div class="bar-count">${pct}%</div>
+          </div>`;
+        i++;
+      }
+    }
+
+    $("btnStart").onclick = () => {
+      if (loopTimer) return;
+      $("logStatus").textContent = "running";
+      $("logStatus").style.color = "#00e5b4";
+      const { interval } = getConfig();
+      sendRequest();
+      loopTimer = setInterval(sendRequest, interval);
+    };
+
+    $("btnStop").onclick = () => {
+      clearInterval(loopTimer);
+      loopTimer = null;
+      $("logStatus").textContent = "stopped";
+      $("logStatus").style.color = "#6b7280";
+    };
+
+    $("btnOnce").onclick = sendRequest;
+
+    $("btnClear").onclick = () => {
+      $("logBody").innerHTML = "";
+      reqCount = okCount = errCount = 0;
+      latencies = [];
+      distribution = {};
+      $("statTotal").textContent = $("statOk").textContent = $("statErr").textContent = "0";
+      $("statAvg").textContent = "—";
+      $("bars").innerHTML = "";
+    };
+  </script>
+</body>
+</html>
