@@ -2,7 +2,7 @@ const http = require('http');
 
 // Configuration for Backend 2
 const config = {
-  port: 5002,
+  port: process.env.PORT || 5002,
   name: 'Backend Service 2',
   latencyMs: { min: 80, max: 200 },
   errorRate: 0.08, // 8% error rate - slightly less stable
